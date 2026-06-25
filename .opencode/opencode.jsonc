@@ -1,0 +1,41 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "notion": {
+      "enabled": false
+    },
+    "joplin": {
+      "enabled": false
+    }
+  },
+  "instructions": [
+    ".opencode/rules/typescript.md",
+    ".opencode/rules/testing.md",
+    ".opencode/rules/quality_check.md",
+    ".opencode/rules/commit_messages.md",
+    ".opencode/rules/log_changes.md",
+    ".opencode/rules/package_json.md",
+    ".opencode/rules/error-handling.md",
+    ".opencode/rules/logging.md",
+    ".opencode/rules/language.md",
+    ".opencode/rules/project-structure.md",
+    ".opencode/rules/task_format.md",
+    ".opencode/rules/code_intelligence.md",
+    ".opencode/rules/environment-config.md",
+    ".opencode/rules/markdown_formatting.md",
+    ".opencode/rules/subagents.md",
+    ".opencode/skills/run-validation.md",
+    ".opencode/skills/run-tests.md",
+    ".opencode/skills/run-build.md",
+    ".opencode/skills/generate-changelog.md",
+    ".opencode/skills/kanban.md",
+    ".opencode/skills/start-task.md",
+    ".opencode/skills/workflow-commit.md",
+    ".opencode/skills/debug.md",
+    ".opencode/skills/analyze-quality-report.md",
+    ".opencode/skills/analyze-test-report.md",
+    ".opencode/skills/complete-task.md",
+    ".opencode/skills/push-and-pr.md",
+    ".opencode/skills/release.md"
+  ]
+}

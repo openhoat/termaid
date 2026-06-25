@@ -16,10 +16,20 @@
 - [ ] **[FEAT]** Discord bot: Create `@termaid/discord-bot` package structure - bot class, command handling (P3)
 - [ ] **[FEAT]** Discord bot: Implement commands - `!tb` (generate), `!tb explain`, `!tb interpret` (P3)
 
-<!-- Other ideas -->
-- [ ] **[ARCHITECTURE]** Create `termaidsh` meta-shell: interactive shell wrapper with AI command suggestion, pre-filled validation, and output interpretation (reusing shared LLM providers) (P3)
-- [ ] **[ARCHITECTURE]** Multi-format export: Markdown, PDF, HTML with syntax highlighting (P3)
-- [ ] **[UX]** Contextual AI suggestions based on current directory, project type detection, and recent commands (P3)
+<!-- Context-Aware AI (Feature 2 - Suggestions contextuelles) -->
+- [ ] **[UX]** Collect system context (cwd, OS, git status, project type, Docker availability) for AI command generation (P1)
+- [ ] **[UX]** Inject system context into LLM prompts to produce environment-aware command suggestions (P1)
+- [ ] **[UX]** Auto-refresh system context periodically and refresh before each command request (P1)
+
+<!-- Error Auto-Correction (Feature 3a) -->
+- [ ] **[FEAT]** Create fix-error prompt and backend service to auto-suggest command corrections on failure (P1)
+- [ ] **[UX]** Display error correction suggestions in chat UI with one-click apply / dismiss (P2)
+
+<!-- Command Workflows/Recipes (Feature 3b) -->
+- [ ] **[FEAT]** Create recipe storage service (JSON) with CRUD operations for reusable command sequences (P2)
+- [ ] **[FEAT]** Implement recipe execution engine with step-by-step progression and error handling (P2)
+- [ ] **[UX]** Add recipe recording mode to capture command sequences during execution (P2)
+- [ ] **[UX]** Build recipe management UI (list panel, editor, runner with progress) (P2)
 
 ## 🚧 In Progress
 
