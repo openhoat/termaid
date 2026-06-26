@@ -12,11 +12,13 @@ export interface UseCommandExecutionOptions {
   onExecutionStart?: () => void
   onExecutionComplete?: (command: string, output: string) => void
   onExecutionError?: (error: Error) => void
+  onInterpretationError?: (error: Error) => void
 }
 
 export interface UseCommandExecutionResult {
   // State
   isExecuting: boolean
+  isInterpreting: boolean
   executionProgress: number
 
   // Actions
@@ -25,7 +27,7 @@ export interface UseCommandExecutionResult {
     command: string,
     messageIndex: number,
     persistedCommandIndex: number | null,
-    onInterpretation: (output: string, interpretation: string) => void
+    onInterpretation: (output: string, interpretation: CommandInterpretation) => void
   ) => Promise<void>
 }
 
@@ -151,9 +153,13 @@ export function useCommandExecution(
         setIsInterpreting(true)
         setExecutionProgress(95)
 
-        const interpretation = await window.electronAPI.llmInterpretOutput(output, i18n.language)
+        const interpretation = await window.electronAPI.llmInterpretOutput(
+          output,
+          i18n.language,
+          command
+        )
 
-        logger.debug('AI interpretation:', interpretation)
+        logger.info('AI interpretation received:', JSON.stringify(interpretation).substring(0, 200))
 
         // Callback to update conversation
         onInterpretation(output, interpretation)
@@ -161,17 +167,18 @@ export function useCommandExecution(
         setExecutionProgress(100)
       } catch (error) {
         logger.error('Output interpretation error:', error)
-        // Non-fatal: continue without interpretation
+        options.onInterpretationError?.(error instanceof Error ? error : new Error(String(error)))
       } finally {
         setIsInterpreting(false)
         setExecutionProgress(0)
       }
     },
-    [executeCommand, i18n]
+    [executeCommand, i18n, options.onInterpretationError]
   )
 
   return {
     isExecuting: isExecuting || isInterpreting,
+    isInterpreting,
     executionProgress,
     executeCommand,
     executeWithInterpretation,

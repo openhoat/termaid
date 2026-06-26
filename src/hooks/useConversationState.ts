@@ -6,6 +6,7 @@ export interface UseConversationStateResult {
   // State
   conversation: ChatMessageData[]
   messageCounter: number
+  messageCounterRef: React.MutableRefObject<number>
   currentCommandIndex: number | null
   persistedCommandIndex: number | null
 
@@ -26,8 +27,12 @@ export interface UseConversationStateResult {
 export function useConversationState(): UseConversationStateResult {
   const [conversation, setConversation] = useState<ChatMessageData[]>([])
   const [messageCounter, setMessageCounter] = useState(0)
+  const messageCounterRef = useRef(0)
   const [currentCommandIndex, setCurrentCommandIndex] = useState<number | null>(null)
   const [persistedCommandIndex, setPersistedCommandIndex] = useState<number | null>(null)
+
+  // Keep ref in sync with state
+  messageCounterRef.current = messageCounter
 
   const chatResetKey = useChatResetKey()
   const prevResetKeyRef = useRef(chatResetKey)
@@ -79,6 +84,7 @@ export function useConversationState(): UseConversationStateResult {
   return {
     conversation,
     messageCounter,
+    messageCounterRef,
     currentCommandIndex,
     persistedCommandIndex,
     addMessage,

@@ -117,10 +117,21 @@ export function useChat() {
     onStreamError: handleStreamError,
   })
 
+  const handleInterpretationError = useCallback(
+    (error: Error) => {
+      logger.warn('Interpretation failed (non-fatal):', error.message)
+      addToast('warning', `Output analysis failed: ${error.message}`)
+    },
+    [addToast]
+  )
+
   const execution = useCommandExecution({
     onExecutionComplete: handleExecutionComplete,
     onExecutionError: handleExecutionError,
+    onInterpretationError: handleInterpretationError,
   })
+
+  const isInterpreting = execution.isInterpreting
 
   /**
    * Load conversations on mount
@@ -260,8 +271,8 @@ export function useChat() {
           const aiContent = command.type === 'text' ? command.content : command.explanation || ''
 
           // Calculate index BEFORE adding (index of the message we're about to add)
-          // Use messageCounter which is the current count (= next index)
-          const messageIndex = conversationState.messageCounter
+          // Use ref to avoid stale closure in async execution
+          const messageIndex = conversationState.messageCounterRef.current
 
           conversationState.addMessage({
             id: messageId,
@@ -269,11 +280,6 @@ export function useChat() {
             content: aiContent,
             command: command.type === 'command' ? command : undefined,
           })
-
-          // Set current command index to the newly added message (for execution)
-          if (command.type === 'command') {
-            conversationState.setCurrentCommandIndex(messageIndex)
-          }
 
           // Save AI response to persistent storage
           // Calculate the persisted index: user message is at length-1, assistant will be at length
@@ -290,12 +296,15 @@ export function useChat() {
           if (command.type === 'command') {
             messageToSave.command = command.command
           }
-          await addMessageToConversation(messageToSave)
 
-          // Store the persisted index for command responses (to update with output/interpretation later)
+          // Set both indices BEFORE db save to prevent race condition:
+          // user clicking Execute before persistedCommandIndex is set
           if (command.type === 'command') {
+            conversationState.setCurrentCommandIndex(messageIndex)
             conversationState.setPersistedCommandIndex(persistedIndex)
           }
+
+          await addMessageToConversation(messageToSave)
 
           // Add to input history
           inputHistory.addToHistory(sanitized)
@@ -323,7 +332,7 @@ export function useChat() {
       createConversation,
       addMessageToConversation,
       conversationState.addMessage,
-      conversationState.messageCounter,
+      conversationState.messageCounterRef,
       conversationState.setCurrentCommandIndex,
       conversationState.setPersistedCommandIndex,
       streaming.startStreaming,
@@ -394,15 +403,12 @@ export function useChat() {
           i18n.language
         )
 
-        setAiCommand(command)
-        // Note: setIsLoading(false) is called after DB save
-
         // Add AI command to local conversation
         const aiContent = command.type === 'text' ? command.content : command.explanation || ''
 
         // Calculate index BEFORE adding (index of the message we're about to add)
-        // Use messageCounter which is the current count (= next index)
-        const messageIndex = conversationState.messageCounter
+        // Use ref to avoid stale closure in async execution
+        const messageIndex = conversationState.messageCounterRef.current
 
         conversationState.addMessage({
           id: `msg-${Date.now()}`,
@@ -410,11 +416,6 @@ export function useChat() {
           content: aiContent,
           command: command.type === 'command' ? command : undefined,
         })
-
-        // Set current command index to the newly added message (for execution)
-        if (command.type === 'command') {
-          conversationState.setCurrentCommandIndex(messageIndex)
-        }
 
         // Save AI response to persistent storage
         // Calculate the persisted index: user message is at length-1, assistant will be at length
@@ -431,12 +432,17 @@ export function useChat() {
         if (command.type === 'command') {
           messageToSave.command = command.command
         }
-        await addMessageToConversation(messageToSave)
 
-        // Store the persisted index for command responses (to update with output/interpretation later)
+        // Set both indices BEFORE db save to prevent race condition
         if (command.type === 'command') {
+          conversationState.setCurrentCommandIndex(messageIndex)
           conversationState.setPersistedCommandIndex(persistedIndex)
         }
+
+        await addMessageToConversation(messageToSave)
+
+        // Set aiCommand AFTER indices are set so Execute button only appears when both are ready
+        setAiCommand(command)
 
         // Add to input history
         inputHistory.addToHistory(sanitized)
@@ -467,7 +473,7 @@ export function useChat() {
       createConversation,
       addMessageToConversation,
       conversationState.addMessage,
-      conversationState.messageCounter,
+      conversationState.messageCounterRef,
       conversationState.setCurrentCommandIndex,
       conversationState.setPersistedCommandIndex,
       inputHistory.addToHistory,
@@ -492,6 +498,10 @@ export function useChat() {
             messageIndex,
             conversationState.persistedCommandIndex,
             (output, interpretation) => {
+              logger.info('Interpretation callback:', {
+                messageIndex,
+                interpretation: interpretation?.summary,
+              })
               // Update local conversation
               conversationState.updateMessage(messageIndex, { output, interpretation })
 
@@ -564,7 +574,7 @@ export function useChat() {
     userInput,
     conversation: conversationState.conversation,
     currentCommandIndex: conversationState.currentCommandIndex,
-    isInterpreting: false, // Managed internally by execution hook
+    isInterpreting,
     isExecuting: execution.isExecuting,
     executionProgress: execution.executionProgress,
 

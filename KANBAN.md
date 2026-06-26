@@ -33,4 +33,6 @@
 
 ## 🚧 In Progress
 
-<!-- Tasks in progress appear here -->
+<!-- Context-Aware AI (Feature 2 - Sprint 1) -->
+- [x] **[FEAT]** Collect system context (cwd, OS, git status, project type, Docker availability) for AI command generation
+- [ ] **[UX]** Inject system context into LLM prompts to produce environment-aware command suggestions

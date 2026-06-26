@@ -5,6 +5,7 @@ import type {
   LLMProviderMetadata,
   ProviderInfo,
   StreamingProgress,
+  SystemContext,
 } from '@shared/types'
 import { contextBridge, desktopCapturer, ipcRenderer } from 'electron'
 
@@ -51,6 +52,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
+  // Context
+  getContext: (recentCommands?: string[]) =>
+    ipcRenderer.invoke('context:get', recentCommands) as Promise<SystemContext>,
+  setCwd: (cwd: string) => ipcRenderer.invoke('context:set-cwd', cwd),
+
   // LLM
   llmInit: (config: {
     url: string
@@ -65,8 +71,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     language?: string
   ) => ipcRenderer.invoke('llm:generate-command', prompt, conversationHistory, language),
   llmExplainCommand: (command: string) => ipcRenderer.invoke('llm:explain-command', command),
-  llmInterpretOutput: (output: string, language?: string) =>
-    ipcRenderer.invoke('llm:interpret-output', output, language),
+  llmInterpretOutput: (output: string, language?: string, command?: string) =>
+    ipcRenderer.invoke('llm:interpret-output', output, language, command),
   llmTestConnection: () => ipcRenderer.invoke('llm:test-connection'),
   llmListModels: () => ipcRenderer.invoke('llm:list-models'),
 

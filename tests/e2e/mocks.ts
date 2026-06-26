@@ -246,7 +246,8 @@ export function createMockElectronAPI(
     },
     llmInterpretOutput: async (
       _output: string,
-      _language?: string
+      _language?: string,
+      _command?: string
     ): Promise<CommandInterpretation> => {
       // callIndex is already incremented after llmGenerateCommand, so use callIndex-1
       const idx = Math.max(0, callIndex - 1)

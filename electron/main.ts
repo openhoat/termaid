@@ -6,6 +6,7 @@ import type { AppConfig } from '../shared/types'
 import { createAuditHandlers } from './ipc-handlers/audit'
 import { createCheckpointHandlers } from './ipc-handlers/checkpoint'
 import { createConfigHandlers } from './ipc-handlers/config'
+import { createContextHandlers } from './ipc-handlers/context'
 import { createConversationHandlers } from './ipc-handlers/conversation'
 import { cleanupActiveStreams, createLLMHandlers } from './ipc-handlers/llm-service'
 import { createTerminalHandlers } from './ipc-handlers/terminal'
@@ -162,6 +163,11 @@ const createWindow = (): void => {
     'did-fail-load',
     (_event, errorCode, errorDescription, validatedURL) => {
       logger.error('Failed to load', { errorCode, errorDescription, validatedURL })
+      // Fallback to local file if dev server is unavailable
+      if (isDev && errorCode === -102 && mainWindow) {
+        logger.info('Dev server unavailable, falling back to local file')
+        mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'))
+      }
     }
   )
 
@@ -196,6 +202,7 @@ app.whenReady().then(() => {
   createConversationHandlers()
   createCheckpointHandlers()
   createAuditHandlers(getMainWindow)
+  createContextHandlers()
 
   // Get initial config and merge with environment variables
   const storedConfig = store.get('config')

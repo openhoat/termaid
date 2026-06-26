@@ -78,7 +78,8 @@ export interface ElectronAPI {
   llmExplainCommand: (command: string) => Promise<string>
   llmInterpretOutput: (
     output: string,
-    language?: string
+    language?: string,
+    command?: string
   ) => Promise<{
     summary: string
     key_findings: string[]

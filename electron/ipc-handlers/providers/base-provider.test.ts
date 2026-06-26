@@ -6,16 +6,16 @@ describe('BaseLLMProvider constants', () => {
       expect(50).toBe(50)
     })
 
-    test('MAX_OUTPUT_LINES should be 50', () => {
-      expect(50).toBe(50)
+    test('MAX_OUTPUT_LINES should be 200', () => {
+      expect(200).toBe(200)
     })
 
     test('DEFAULT_TEMPERATURE should be 0.7', () => {
       expect(0.7).toBe(0.7)
     })
 
-    test('DEFAULT_MAX_TOKENS should be 1000', () => {
-      expect(1000).toBe(1000)
+    test('DEFAULT_MAX_TOKENS should be 2000', () => {
+      expect(2000).toBe(2000)
     })
   })
 

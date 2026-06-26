@@ -1,0 +1,44 @@
+[
+  {
+    "prompt": "décris-moi l'environnement de ce projet",
+    "expected": "command",
+    "language": "fr"
+  },
+  {
+    "prompt": "liste les fichiers",
+    "expected": "command",
+    "language": "fr"
+  },
+  {
+    "prompt": "Bonjour",
+    "expected": "text",
+    "language": "fr"
+  },
+  {
+    "prompt": "Qui suis-je ?",
+    "expected": "command",
+    "language": "fr"
+  },
+  {
+    "prompt": "where am i?",
+    "expected": "command",
+    "language": "en"
+  },
+  {
+    "prompt": "Hello",
+    "expected": "text",
+    "language": "en"
+  },
+  {
+    "command": "ls -la",
+    "output": "total 24\ndrwxr-xr-x  2 user group 4096 Jan 15 10:30 .\ndrwxr-xr-x  3 user group 4096 Jan 15 10:30 ..\n-rw-r--r--  1 user group  123 Jan 15 10:30 file1.txt\n-rw-r--r--  1 user group  456 Jan 15 10:30 file2.txt\n-rw-r--r--  1 user group  789 Jan 15 10:30 script.sh",
+    "expected": "interpretation",
+    "language": "fr"
+  },
+  {
+    "command": "cat /etc/os-release",
+    "output": "NAME=\"Fedora Linux\"\nVERSION=\"44 (Workstation Edition)\"\nPRETTY_NAME=\"Fedora Linux 44 (Workstation Edition)\"\nID=fedora\nVERSION_ID=44",
+    "expected": "interpretation",
+    "language": "fr"
+  }
+]

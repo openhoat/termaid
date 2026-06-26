@@ -1,0 +1,15 @@
+[
+  {
+    "role": "user",
+    "content": "liste les fichiers du dossier courant"
+  },
+  {
+    "role": "assistant",
+    "content": "Voici la commande pour lister les fichiers",
+    "command": "ls -la"
+  },
+  {
+    "role": "user",
+    "content": "fais la même chose dans le dossier src"
+  }
+]

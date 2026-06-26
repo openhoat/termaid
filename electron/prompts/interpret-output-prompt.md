@@ -1,57 +1,45 @@
-Task: Analyze the output of a command that was just executed in a terminal. The output may contain ANSI escape codes, shell prompts, and control sequences - IGNORE ALL OF THESE and focus ONLY on the actual command results.
+Analyze the output of a terminal command. Extract real data from the output — numbers, sizes, names, counts, status — and return a structured JSON interpretation.
 
-IMPORTANT: You MUST respond in the following language: {{language}}. All text in your response (summary, key_findings, warnings, errors, recommendations) MUST be in this language.
+OUTPUT LANGUAGE: {language}. All text fields MUST be in this language.
 
-Required JSON format:
-{{"summary":"text","key_findings":["item1","item2"],"warnings":["item1"],"errors":["item1"],"recommendations":["item1"],"successful":true}}
+Respond ONLY with valid JSON in this exact format:
+{{"summary":"...","key_findings":["...","..."],"warnings":["..."],"errors":["..."],"recommendations":["..."],"successful":true|false}}
 
-Rules:
-- summary: 1-2 sentences describing what the command did or showed, with specific numerical values when applicable
-- key_findings: array of important observations with actual numbers/values extracted from output (max 5)
-- warnings: array of non-critical issues or warnings (max 3)
-- errors: array of critical errors or error messages (max 3)
-- recommendations: array of actionable next steps (max 3)
-- successful: true if command worked without errors, false if it failed
-- EXTRACT and INCLUDE actual numerical data, percentages, file sizes, counts, etc. from the output
-- Be specific and informative - don't just say "output received"
-- If output is EMPTY or contains ONLY whitespace, set successful: false and report no output error
-- NEVER invent, assume, or hallucinate data that is not present in the actual output
-- Extract ONLY what is explicitly shown in the command output
+RULES:
+- summary: 1 short sentence describing what happened
+- key_findings: extract SPECIFIC values from the output (file names, sizes, counts, status). Max 5.
+- warnings: actual warnings found in the output. Max 3.
+- errors: actual errors found in the output. Max 3.
+- recommendations: actionable next steps. Max 3.
+- successful: true if command completed without errors
+- NEVER invent data. Extract ONLY what is in the output.
+- Output may contain ANSI escape codes — ignore them.
 
-IMPORTANT:
-- IGNORE ANSI escape codes (sequences starting with \x1B or ESC)
-- IGNORE shell prompts (lines like user@hostname:~$ or similar)
-- IGNORE control sequences and terminal escape codes
-- ONLY analyze the actual command output
-- EXTRACT meaningful data from the output (numbers, sizes, counts, percentages)
-- If you see only ANSI codes and shell prompts, report that no command output was found
-- For simple commands like date, whoami, pwd, echo - ALWAYS extract and report the output content
+COMMAND CONTEXT (use to understand what the output means):
+The command executed is: {command}. Use this to interpret the output correctly.
 
-Example 1 (free -h command):
-{{"summary":"Memory usage shows 8GB total RAM with 3.2GB used (40%) and 4.8GB available","key_findings":["Total memory: 8.0GB","Used: 3.2GB (40%)","Available: 4.8GB (60%)","Swap: 2.0GB total, 0GB used"],"Buffers/Cache: 1.5GB"],"warnings":[],"errors":[],"recommendations":["Memory usage is healthy - plenty available"],"successful":true}}
+USER ENVIRONMENT:
+{{environment_context}}
+Use this to tailor your interpretation (e.g., mention the OS, Docker containers, or project context when relevant).
 
-Example 2 (ls -lh command):
-{{"summary":"Listed 5 items totaling 1.2MB in directory","key_findings":["3 files (1.0MB total)","2 directories","script.sh: 75KB (executable)"],"readme.txt: 128KB"],"data.csv: 800KB"],"warnings":[],"errors":[],"recommendations":["Large file data.csv (800KB) could be compressed"],"successful":true}}
+EXAMPLES:
 
-Example 3 (permission error):
-{{"summary":"Command failed due to permission denied error","key_findings":[],"warnings":[],"errors":["Permission denied: cannot open file.txt"],"recommendations":["Try running with sudo","Check file permissions","Verify you are the file owner"],"successful":false}}
+Input: ls -lh
+Output: total 1.2M
+-rw-r--r-- 1 user user 800K Jan 15 10:30 data.csv
+-rw-r--r-- 1 user user 128K Jan 15 10:30 readme.txt
+-rwxr-xr-x 1 user user 75K Jan 15 10:30 script.sh
 
-Example 4 (simple single-line output like date, whoami, pwd):
-{{"summary":"Current date and time: Tue Mar 4 16:45:00 CET 2026","key_findings":["System date: Tue Mar 4 2026","Current time: 16:45:00","Timezone: CET"],"warnings":[],"errors":[],"recommendations":[],"successful":true}}
+Response: {{"summary":"Listed 3 items totaling 1.0MB in directory","key_findings":["data.csv: 800KB","readme.txt: 128KB","script.sh: 75KB (executable)"],"warnings":[],"errors":[],"recommendations":["Large file data.csv (800KB) could be compressed"],"successful":true}}
 
-Example 5 (empty output - command likely failed):
-{{"summary":"Command produced no output - likely failed or returned no results","key_findings":[],"warnings":[],"errors":["No output detected - command may have failed","No data available to analyze"],"recommendations":["Verify command syntax is correct","Check if the command requires different arguments","Try an alternative command"],"successful":false}}
+Input: free -h
+Output:               total        used        free      shared  buff/cache   available
+Mem:           7.6Gi       3.2Gi       1.2Gi       0.1Gi       3.2Gi       4.0Gi
+Swap:          2.0Gi          0B       2.0Gi
 
-CRITICAL: If you receive empty or whitespace-only output, DO NOT invent or hallucinate data.
-Report it as an error with successful: false.
+Response: {{"summary":"Memory: 7.6GB total, 3.2GB used (42%), 4.0GB available","key_findings":["Total: 7.6GB","Used: 3.2GB (42%)","Available: 4.0GB (53%)","Swap: 2.0GB total, 0B used"],"warnings":[],"errors":[],"recommendations":["Memory usage is healthy"],"successful":true}}
 
-Example 6 (silent command - mkdir, touch, cp, mv, etc. - successful with no output):
-{{"summary":"Command executed successfully with no output - typical for mkdir, touch, cp, mv, and similar commands","key_findings":["No error messages detected","Command appears to have completed"],"warnings":[],"errors":[],"recommendations":["Verify the result if needed (e.g., ls to list files)"],"successful":true}}
+Input: cat broken.txt
+Output: cat: broken.txt: No such file or directory
 
-Example 7 (silent command - chmod, chown, etc. - successful):
-{{"summary":"Permission operation completed successfully","key_findings":["No error output","Command executed without errors"],"warnings":[],"errors":[],"recommendations":[],"successful":true}}
-
-Command output to analyze (may contain ANSI codes and shell prompts - IGNORE THEM):
-{{command_output}}
-
-Return ONLY the JSON object above, nothing else.
+Response: {{"summary":"File not found","key_findings":[],"warnings":[],"errors":["broken.txt: No such file or directory"],"recommendations":["Verify the file path is correct","Check if the file exists with ls"],"successful":false}}

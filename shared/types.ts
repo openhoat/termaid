@@ -330,5 +330,48 @@ export interface CheckpointMetadata {
   preview: string
 }
 
+// ============================================================================
+// System Context Types
+// ============================================================================
+
+/**
+ * Detected project type based on files present in the working directory
+ */
+export type ProjectType = 'node' | 'python' | 'rust' | 'go' | 'docker' | 'generic'
+
+/**
+ * Operating system information
+ */
+export interface OsInfo {
+  platform: string
+  distro?: string
+  release: string
+  arch: string
+  hostname: string
+}
+
+/**
+ * Git repository status snapshot
+ */
+export interface GitInfo {
+  isRepo: boolean
+  branch?: string
+  status?: string
+}
+
+/**
+ * System context collected for enriching LLM prompts
+ */
+export interface SystemContext {
+  cwd: string
+  os: OsInfo
+  shell: string
+  git: GitInfo
+  projectType: ProjectType
+  projectFiles: string[]
+  hasDocker: boolean
+  recentCommands: string[]
+}
+
 // Configuration par défaut et fonctions utilitaires
 export { DEFAULT_CONFIG, getEnvConfig, getEnvSources, mergeConfig } from './config'

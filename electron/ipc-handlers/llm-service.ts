@@ -187,19 +187,22 @@ export function createLLMHandlers(_getWindow: WindowGetter, initialConfig?: AppC
   })
 
   // Interpret terminal output
-  ipcMain.handle('llm:interpret-output', async (_event, output: string, language?: string) => {
-    // E2E mock: return predefined interpretation (cycles through array)
-    if (mockInterpretations && mockInterpretations.length > 0) {
-      const idx = mockInterpretationIndex % mockInterpretations.length
-      mockInterpretationIndex++
-      return mockInterpretations[idx]
-    }
+  ipcMain.handle(
+    'llm:interpret-output',
+    async (_event, output: string, language?: string, command?: string) => {
+      // E2E mock: return predefined interpretation (cycles through array)
+      if (mockInterpretations && mockInterpretations.length > 0) {
+        const idx = mockInterpretationIndex % mockInterpretations.length
+        mockInterpretationIndex++
+        return mockInterpretations[idx]
+      }
 
-    if (!service) {
-      throw new Error('LLM service not initialized')
+      if (!service) {
+        throw new Error('LLM service not initialized')
+      }
+      return await service.interpretOutput(output, language, command)
     }
-    return await service.interpretOutput(output, language)
-  })
+  )
 
   // Test connection to LLM provider
   ipcMain.handle('llm:test-connection', async () => {

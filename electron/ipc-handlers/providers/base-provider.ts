@@ -9,8 +9,10 @@ import type {
   CommandInterpretation,
   ConversationMessage,
   StreamingCallback,
+  SystemContext,
 } from '@shared/types'
 import { z } from 'zod'
+import { contextService } from '../../services/contextService'
 import { Logger } from '../../utils/logger'
 
 // ============================================================================
@@ -143,9 +145,9 @@ const logger = new Logger('BaseLLMProvider')
 
 // Constants
 const MAX_CONVERSATION_HISTORY = 50
-const MAX_OUTPUT_LINES = 50
+const MAX_OUTPUT_LINES = 200
 const DEFAULT_TEMPERATURE = 0.7
-const DEFAULT_MAX_TOKENS = 1000
+const DEFAULT_MAX_TOKENS = 2000
 
 /**
  * Clean terminal output by removing ANSI codes, OSC sequences, and control characters
@@ -172,6 +174,92 @@ function loadPrompt(filename: string): string {
   return fs.readFileSync(filePath, 'utf-8')
 }
 
+const SILENT_COMMANDS = new Set([
+  'mkdir',
+  'touch',
+  'cp',
+  'mv',
+  'rm',
+  'ln',
+  'chmod',
+  'chown',
+  'cd',
+  'pushd',
+  'popd',
+  'source',
+  'export',
+  'alias',
+  'unset',
+  'set',
+  'let',
+  'typeset',
+  'declare',
+  'local',
+])
+
+function isSilentCommand(command: string): boolean {
+  const cmdName = command.trim().split(/\s+/)[0]?.toLowerCase()
+  return cmdName ? SILENT_COMMANDS.has(cmdName) : false
+}
+
+function commandSummary(command: string, language: string): string {
+  const cmdName = command.trim().split(/\s+/)[0]
+  if (language === 'fr') {
+    return `Commande exécutée avec succès : ${cmdName} n'a produit aucune sortie (comportement normal)`
+  }
+  return `Command executed successfully: ${cmdName} produced no output (normal behavior)`
+}
+
+/**
+ * Extract recent commands from conversation history
+ */
+export function extractRecentCommands(conversationHistory?: ConversationMessage[]): string[] {
+  if (!conversationHistory || conversationHistory.length === 0) {
+    return []
+  }
+  return conversationHistory
+    .filter(msg => msg.role === 'assistant' && msg.command)
+    .map(msg => msg.command as string)
+    .slice(-5)
+}
+
+/**
+ * Format environment context into a readable block for the prompt
+ */
+export function formatContextBlock(context: SystemContext): string {
+  const lines: string[] = [
+    `Working directory: ${context.cwd}`,
+    `OS: ${context.os.platform}${context.os.distro ? ` (${context.os.distro})` : ''} ${context.os.release} ${context.os.arch}`,
+    `Hostname: ${context.os.hostname}`,
+    `Shell: ${context.shell}`,
+  ]
+
+  if (context.git.isRepo) {
+    const gitParts = [`Git: branch: ${context.git.branch || 'HEAD'}`]
+    if (context.git.status) {
+      const changeCount = context.git.status.split('\n').length
+      gitParts.push(`${changeCount} file(s) modified`)
+    } else {
+      gitParts.push('clean working tree')
+    }
+    lines.push(gitParts.join(' — '))
+  } else {
+    lines.push('Git: not a git repository')
+  }
+
+  lines.push(`Project type: ${context.projectType}`)
+  if (context.projectFiles.length > 0) {
+    lines.push(`Detected files: ${context.projectFiles.join(', ')}`)
+  }
+  lines.push(`Docker: ${context.hasDocker ? 'available' : 'not available'}`)
+
+  if (context.recentCommands.length > 0) {
+    lines.push(`Recent commands: ${context.recentCommands.join(' | ')}`)
+  }
+
+  return lines.join('\n')
+}
+
 /**
  * Abstract base class for LLM providers
  * Contains shared logic for command generation, explanation, and output interpretation
@@ -196,6 +284,10 @@ export abstract class BaseLLMProvider implements ILLMProvider {
   ): Promise<AICommand> {
     const systemPrompt = loadPrompt('system-prompt.md')
 
+    const context = await contextService.getContext(extractRecentCommands(conversationHistory))
+    const contextBlock = formatContextBlock(context)
+    const contextualizedPrompt = systemPrompt.replace('{{environment_context}}', contextBlock)
+
     const messages: (HumanMessage | AIMessage)[] = []
 
     if (conversationHistory && conversationHistory.length > 0) {
@@ -209,7 +301,7 @@ export abstract class BaseLLMProvider implements ILLMProvider {
       }
     }
 
-    const enhancedSystemPrompt = `${systemPrompt}\n\n[Language hint: User interface language is ${language}]`
+    const enhancedSystemPrompt = `${contextualizedPrompt}\n\n[Language hint: User interface language is ${language}]`
 
     const commandSchema = z.object({
       type: z.enum(['command', 'text']),
@@ -318,6 +410,10 @@ export abstract class BaseLLMProvider implements ILLMProvider {
   ): Promise<AICommand> {
     const systemPrompt = loadPrompt('system-prompt.md')
 
+    const context = await contextService.getContext(extractRecentCommands(conversationHistory))
+    const contextBlock = formatContextBlock(context)
+    const contextualizedPrompt = systemPrompt.replace('{{environment_context}}', contextBlock)
+
     const messages: (HumanMessage | AIMessage)[] = []
 
     if (conversationHistory && conversationHistory.length > 0) {
@@ -331,7 +427,7 @@ export abstract class BaseLLMProvider implements ILLMProvider {
       }
     }
 
-    const enhancedSystemPrompt = `${systemPrompt}\n\n[Language hint: User interface language is ${language}]`
+    const enhancedSystemPrompt = `${contextualizedPrompt}\n\n[Language hint: User interface language is ${language}]`
 
     // Notify connecting
     onProgress({ type: 'connecting' })
@@ -452,7 +548,11 @@ export abstract class BaseLLMProvider implements ILLMProvider {
    */
   async explainCommand(command: string): Promise<string> {
     const promptTemplate = loadPrompt('explain-command-prompt.md')
-    const prompt = promptTemplate.replace('{command}', command)
+    const context = await contextService.getContext(extractRecentCommands())
+    const contextBlock = formatContextBlock(context)
+    const prompt = promptTemplate
+      .replace('{command}', command)
+      .replace('{{environment_context}}', contextBlock)
 
     const chatPrompt = ChatPromptTemplate.fromMessages([['human', prompt]])
 
@@ -468,13 +568,90 @@ export abstract class BaseLLMProvider implements ILLMProvider {
   }
 
   /**
+   * Extract generic observations from any command output.
+   * Pure pattern discovery — no command-specific format assumptions.
+   */
+  private extractGenericFindings(text: string): string[] {
+    const findings: string[] = []
+    const rawLines = text.split('\n')
+    const lines = rawLines.filter(l => l.trim().length > 0)
+    if (lines.length === 0) return findings
+
+    // Total block count (common in ls output — purely observational)
+    const total = text.match(/^total\s+(\d+)/m)
+    if (total && total[1] !== '0') {
+      findings.push(`Total blocks: ${total[1]}`)
+    }
+
+    // Count lines with permission-like prefixes (generic UNIX listing pattern)
+    const listingLines = lines.filter(l => /^[dlspc-][rwxst-]{9}\s/.test(l))
+    if (listingLines.length > 0) {
+      const dirs = listingLines.filter(l => l.trim().startsWith('d')).length
+      const files = listingLines.filter(l => l.trim().startsWith('-')).length
+      const links = listingLines.filter(l => l.trim().startsWith('l')).length
+      const parts: string[] = []
+      if (files > 0) parts.push(`${files} file${files > 1 ? 's' : ''}`)
+      if (dirs > 0) parts.push(`${dirs} director${dirs > 1 ? 'ies' : 'y'}`)
+      if (links > 0) parts.push(`${links} symlink${links > 1 ? 's' : ''}`)
+      if (parts.length > 0) findings.push(parts.join(', '))
+    }
+
+    // Numbers with units (KB, MB, GB, KiB, MiB, GiB, %)
+    const units = [
+      ...new Set(
+        Array.from(text.matchAll(/([\d.]+)\s*(KB|MB|GB|KiB|MiB|GiB|%)/gi)).map(
+          m => `${m[1]} ${m[2].toUpperCase()}`
+        )
+      ),
+    ].slice(0, 5)
+    if (units.length > 0) findings.push(`Values: ${units.join(', ')}`)
+
+    // Error/warning line counts
+    const errorCount = lines.filter(l =>
+      /error|fail|denied|cannot|no such file|not found/i.test(l)
+    ).length
+    const warningCount = lines.filter(l => /warning|deprecated/i.test(l)).length
+    if (errorCount > 0) findings.push(`Errors: ${errorCount}`)
+    if (warningCount > 0) findings.push(`Warnings: ${warningCount}`)
+
+    findings.push(`${lines.length} line${lines.length > 1 ? 's' : ''}`)
+
+    return findings
+  }
+
+  /**
+   * Check if LLM interpretation result is too weak and needs enrichment
+   */
+  private needsEnrichment(interpretation: CommandInterpretation): boolean {
+    if (!interpretation.successful) return false
+    if (interpretation.key_findings.length < 2) return true
+    return interpretation.key_findings.every(kf =>
+      /command executed|output received|listed \d+ items|commande exécutée/i.test(kf)
+    )
+  }
+
+  /**
    * Interpret terminal output
    */
-  async interpretOutput(output: string, language = 'en'): Promise<CommandInterpretation> {
+  async interpretOutput(
+    output: string,
+    language = 'en',
+    command?: string
+  ): Promise<CommandInterpretation> {
     const cleanedOutput = cleanTerminalOutput(output)
 
-    // Pre-validate empty output to prevent hallucination
+    // Pre-validate empty output — check if command is a silent type
     if (cleanedOutput.trim().length === 0) {
+      if (command && isSilentCommand(command)) {
+        return {
+          summary: commandSummary(command, language),
+          key_findings: [`Command executed: ${command}`],
+          warnings: [],
+          errors: [],
+          recommendations: [],
+          successful: true,
+        }
+      }
       return {
         summary:
           language === 'fr'
@@ -498,163 +675,118 @@ export abstract class BaseLLMProvider implements ILLMProvider {
 
     const lines = cleanedOutput.split('\n').slice(0, MAX_OUTPUT_LINES).join('\n')
     const systemPrompt = loadPrompt('interpret-output-prompt.md')
+    const context = await contextService.getContext(extractRecentCommands())
+    const contextBlock = formatContextBlock(context)
+    const contextualizedPrompt = systemPrompt.replace('{{environment_context}}', contextBlock)
 
     const chatPrompt = ChatPromptTemplate.fromMessages([
-      ['system', systemPrompt],
-      ['human', `{command_output}\n{language}`],
+      ['system', contextualizedPrompt],
+      ['human', 'Command: {command}\nOutput:\n{command_output}'],
     ])
 
     const chain = chatPrompt.pipe(this.model)
 
+    let result: CommandInterpretation | null = null
+    let llmFailed = false
+
     try {
-      const result = await chain.invoke({
+      const llmResult = await chain.invoke({
+        command: command || 'unknown',
         command_output: lines,
         language,
       })
-      const responseText = result.content as string
+      const responseText = llmResult.content as string
 
       const jsonMatch = responseText.match(/\{[\s\S]*\}/)
 
       if (jsonMatch) {
-        try {
-          const parsed = JSON.parse(jsonMatch[0])
-          const interpretationSchema = z.object({
-            summary: z.string(),
-            key_findings: z.array(z.string()),
-            warnings: z.array(z.string()),
-            errors: z.array(z.string()),
-            recommendations: z.array(z.string()),
-            successful: z.boolean(),
-          })
+        const parsed = JSON.parse(jsonMatch[0])
+        const interpretationSchema = z.object({
+          summary: z.string(),
+          key_findings: z.array(z.string()),
+          warnings: z.array(z.string()),
+          errors: z.array(z.string()),
+          recommendations: z.array(z.string()),
+          successful: z.boolean(),
+        })
 
-          const validated = interpretationSchema.parse(parsed)
+        const validated = interpretationSchema.parse(parsed)
 
-          return {
-            summary: validated.summary || 'Command output received',
-            key_findings: validated.key_findings || [],
-            warnings: validated.warnings || [],
-            errors: validated.errors || [],
-            recommendations: validated.recommendations || [],
-            successful: validated.successful ?? true,
-          }
-        } catch (parseError) {
-          logger.error('Failed to parse interpretation JSON', parseError)
+        result = {
+          summary: validated.summary || 'Command output received',
+          key_findings: validated.key_findings || [],
+          warnings: validated.warnings || [],
+          errors: validated.errors || [],
+          recommendations: validated.recommendations || [],
+          successful: validated.successful ?? true,
         }
+      } else {
+        throw new Error('No JSON in LLM response')
       }
+    } catch {
+      llmFailed = true
+    }
 
-      const hasErrors = /error|fail|permission denied|cannot|no such file|not found/i.test(
-        cleanedOutput
-      )
-      const isSuccessful = !hasErrors && cleanedOutput.trim().length > 0
+    // If LLM failed or result is too weak, use generic extraction
+    if (result === null || llmFailed || (result !== null && this.needsEnrichment(result))) {
+      const generic = this.extractGenericFindings(cleanedOutput)
 
-      const keyFindings: string[] = []
-      const warnings: string[] = []
-      const errors: string[] = []
-
-      if (isSuccessful) {
-        const memLine = cleanedOutput.match(
-          /Mem:\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)/
+      if (llmFailed || result === null) {
+        const hasErrors = /error|fail|permission denied|cannot|no such file|not found/i.test(
+          cleanedOutput
         )
-        if (memLine) {
-          keyFindings.push(`Total memory: ${memLine[1]}`)
-          keyFindings.push(`Used: ${memLine[2]}`)
-          keyFindings.push(`Free: ${memLine[3]}`)
-          keyFindings.push(`Available: ${memLine[6]}`)
-        } else {
-          const memSimple = cleanedOutput.match(
-            /Mem:\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)/
-          )
-          if (memSimple) {
-            keyFindings.push(`Total memory: ${memSimple[1]}`)
-            keyFindings.push(`Used: ${memSimple[2]}`)
-            keyFindings.push(`Free: ${memSimple[3]}`)
-          }
+        const isSuccessful = !hasErrors && cleanedOutput.trim().length > 0
+
+        result = {
+          summary: isSuccessful
+            ? language === 'fr'
+              ? 'Commande exécutée avec succès'
+              : 'Command executed successfully'
+            : language === 'fr'
+              ? 'La commande a rencontré des erreurs'
+              : 'Command encountered issues',
+          key_findings: generic.length > 0 ? generic : ['Output received'],
+          warnings: [],
+          errors: hasErrors
+            ? [
+                cleanedOutput
+                  .split('\n')
+                  .filter(l => /error|fail|denied/i.test(l))[0]
+                  ?.substring(0, 120) || 'Unknown error',
+              ]
+            : [],
+          recommendations: hasErrors
+            ? [
+                language === 'fr'
+                  ? 'Vérifiez la syntaxe et les permissions'
+                  : 'Check command syntax and permissions',
+              ]
+            : [],
+          successful: isSuccessful,
         }
-
-        const swapInfo = cleanedOutput.match(
-          /Swap:\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)\s+([\d,.]+[A-Za-z]*)/
-        )
-        if (swapInfo) {
-          keyFindings.push(`Swap total: ${swapInfo[1]}`)
-          keyFindings.push(`Swap used: ${swapInfo[2]}`)
-          keyFindings.push(`Swap free: ${swapInfo[3]}`)
-        } else if (/Filesystem.*Size.*Used.*Avail/i.test(cleanedOutput)) {
-          const dfLines = cleanedOutput.split('\n')
-          for (const line of dfLines) {
-            const match = line.match(
-              /\/dev\/[\w]+\s+([\d.]+[A-Z]+)\s+([\d.]+[A-Z]+)\s+([\d.]+[A-Z]+)\s+([\d.]+%)\s+([\d.]+[A-Z]+)/
+      } else {
+        // Enrich weak LLM result with generic findings
+        for (const f of generic) {
+          if (
+            !result.key_findings.some(kf =>
+              kf
+                .toLowerCase()
+                .replace(/[^a-z0-9]/g, '')
+                .includes(
+                  f
+                    .toLowerCase()
+                    .split(':')[0]
+                    .replace(/[^a-z0-9]/g, '')
+                )
             )
-            if (match) {
-              keyFindings.push(`${match[1]}: ${match[2]} (${match[4]}% used)`)
-            }
-          }
-        } else if (/^[\w-]+\s+/i.test(cleanedOutput)) {
-          const fileCount = cleanedOutput.split('\n').filter(line => line.trim().length > 0).length
-          keyFindings.push(`Listed ${fileCount} items`)
-        } else if (/PID\s+.*TIME.*COMMAND/i.test(cleanedOutput)) {
-          const processCount = cleanedOutput
-            .split('\n')
-            .filter(line => line.trim().length > 0 && !line.includes('PID')).length
-          keyFindings.push(`Found ${processCount} processes`)
-        } else if (/ping|ICMP|bytes from/i.test(cleanedOutput)) {
-          if (/time=/i.test(cleanedOutput)) {
-            const timeMatch = cleanedOutput.match(/time=([\d.]+)\s*ms/)
-            if (timeMatch) {
-              keyFindings.push(`Response time: ${timeMatch[1]}ms`)
-            }
-          }
-        } else {
-          const outputLines = cleanedOutput.split('\n').filter(line => line.trim().length > 0)
-          if (outputLines.length > 0) {
-            keyFindings.push(`Command executed successfully`)
-            keyFindings.push(`Output: ${outputLines[0].substring(0, 80)}`)
+          ) {
+            result.key_findings.push(f)
           }
         }
-
-        const warningMatches = cleanedOutput.match(/warning|deprecated|cannot/i)
-        if (warningMatches) {
-          warnings.push('Warnings present in output')
-        }
-      }
-
-      if (hasErrors) {
-        const errorLinesList = cleanedOutput.split('\n').filter(line => line.trim().length > 0)
-        const errorLines = errorLinesList.filter(line =>
-          /error|fail|denied|cannot|no such file|not found/i.test(line)
-        )
-
-        if (errorLines.length > 0) {
-          errors.push(errorLines[0].substring(0, 120))
-        } else if (errorLinesList.length > 0) {
-          errors.push(errorLinesList[0].substring(0, 120))
-        }
-      }
-
-      return {
-        summary: isSuccessful ? 'Command executed successfully' : 'Command encountered issues',
-        key_findings: keyFindings.length > 0 ? keyFindings : ['Output received from command'],
-        warnings,
-        errors,
-        recommendations: hasErrors ? ['Check command syntax and permissions'] : [],
-        successful: isSuccessful,
-      }
-    } catch (error) {
-      logger.error('Failed to interpret output', error)
-      const cleanedFallbackOutput = cleanTerminalOutput(output)
-      const hasErrors = /error|fail|permission denied|cannot|no such file/i.test(
-        cleanedFallbackOutput
-      )
-      const isSuccessful = !hasErrors && cleanedFallbackOutput.trim().length > 0
-
-      return {
-        summary: isSuccessful ? 'Command executed successfully' : 'Command encountered issues',
-        key_findings: isSuccessful ? ['Output received from command'] : [],
-        warnings: [],
-        errors: hasErrors ? ['Command encountered errors'] : [],
-        recommendations: hasErrors ? ['Check command syntax and permissions'] : [],
-        successful: isSuccessful,
       }
     }
+
+    return result
   }
 
   /**
