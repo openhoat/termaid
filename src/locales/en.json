@@ -185,7 +185,8 @@
       "injectionWarning": "Warning: injection characters detected and removed for security: {{patterns}}",
       "outputInterpretationFailed": "Unable to analyze the command output. The output will be displayed without analysis.",
       "terminalNotReady": "The terminal is not ready. Wait a few seconds for the terminal to initialize or restart the application.",
-      "unknownError": "An unexpected error occurred. If the problem persists, please restart the application."
+      "unknownError": "An unexpected error occurred. If the problem persists, please restart the application.",
+      "saveFailed": "Failed to save your message. Please try again."
     },
     "commandWarning": {
       "title": "Command Warning",

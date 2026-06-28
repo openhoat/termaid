@@ -165,7 +165,8 @@
       "injectionWarning": "警告：检测到注入字符并已出于安全原因删除：{{patterns}}",
       "outputInterpretationFailed": "无法分析命令输出。输出将在没有分析的情况下显示。",
       "terminalNotReady": "终端未就绪。请等待几秒钟让终端初始化或重启应用程序。",
-      "unknownError": "发生意外错误。如果问题持续存在，请重启应用程序。"
+      "unknownError": "发生意外错误。如果问题持续存在，请重启应用程序。",
+      "saveFailed": "保存消息失败。请重试。"
     },
     "commandWarning": {
       "title": "命令警告",

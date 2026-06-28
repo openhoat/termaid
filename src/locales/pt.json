@@ -165,7 +165,8 @@
       "injectionWarning": "Aviso: caracteres de injeção detetados e removidos por segurança: {{patterns}}",
       "outputInterpretationFailed": "Não foi possível analisar a saída do comando. A saída será exibida sem análise.",
       "terminalNotReady": "O terminal não está pronto. Aguarde alguns segundos para que o terminal inicialize ou reinicie a aplicação.",
-      "unknownError": "Ocorreu um erro inesperado. Se o problema persistir, por favor reinicie a aplicação."
+      "unknownError": "Ocorreu um erro inesperado. Se o problema persistir, por favor reinicie a aplicação.",
+      "saveFailed": "Erro ao salvar a mensagem. Por favor, tente novamente."
     },
     "commandWarning": {
       "title": "Aviso de comando",

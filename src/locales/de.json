@@ -165,7 +165,8 @@
       "injectionWarning": "Warnung: Injektionszeichen erkannt und aus Sicherheitsgründen entfernt: {{patterns}}",
       "outputInterpretationFailed": "Befehlsausgabe konnte nicht analysiert werden. Die Ausgabe wird ohne Analyse angezeigt.",
       "terminalNotReady": "Das Terminal ist nicht bereit. Warte einige Sekunden bis das Terminal initialisiert ist oder starte die Anwendung neu.",
-      "unknownError": "Ein unerwarteter Fehler ist aufgetreten. Wenn das Problem persists, starte die Anwendung bitte neu."
+      "unknownError": "Ein unerwarteter Fehler ist aufgetreten. Wenn das Problem persists, starte die Anwendung bitte neu.",
+      "saveFailed": "Fehler beim Speichern der Nachricht. Bitte versuche es erneut."
     },
     "commandWarning": {
       "title": "Befehlswarnung",

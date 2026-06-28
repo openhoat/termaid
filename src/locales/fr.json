@@ -207,7 +207,8 @@
       "commandExecutionFailed": "La commande n'a pas pu être exécutée. Vérifiez que le terminal fonctionne correctement.",
       "outputInterpretationFailed": "Impossible d'analyser le résultat de la commande. Le résultat sera affiché sans analyse.",
       "unknownError": "Une erreur inattendue s'est produite. Si le problème persiste, veuillez redémarrer l'application.",
-      "injectionWarning": "Attention: caractères d'injection détectés et supprimés pour la sécurité: {{patterns}}"
+      "injectionWarning": "Attention: caractères d'injection détectés et supprimés pour la sécurité: {{patterns}}",
+      "saveFailed": "Échec de la sauvegarde du message. Veuillez réessayer."
     },
     "commandWarning": {
       "title": "Avertissement de commande",

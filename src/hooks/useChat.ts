@@ -245,11 +245,19 @@ export function useChat() {
         })
 
         // Save user message to persistent storage (always after creating conversation if needed)
-        await addMessageToConversation({
-          role: 'user',
-          content: sanitized,
-          timestamp: new Date(),
-        })
+        try {
+          await addMessageToConversation({
+            role: 'user',
+            content: sanitized,
+            timestamp: new Date(),
+          })
+        } catch (dbError) {
+          conversationState.removeLastMessage()
+          logger.error('Failed to save user message to DB:', dbError)
+          setIsLoading(false)
+          addToast('error', i18n.t('errors.saveFailed'))
+          return
+        }
 
         // Build conversation history for context
         const conversationHistory: ConversationMessage[] =
@@ -304,7 +312,15 @@ export function useChat() {
             conversationState.setPersistedCommandIndex(persistedIndex)
           }
 
-          await addMessageToConversation(messageToSave)
+          try {
+            await addMessageToConversation(messageToSave)
+          } catch (dbError) {
+            conversationState.removeLastMessage()
+            logger.error('Failed to save AI response to DB:', dbError)
+            setIsLoading(false)
+            addToast('error', i18n.t('errors.saveFailed'))
+            return
+          }
 
           // Add to input history
           inputHistory.addToHistory(sanitized)
@@ -339,6 +355,7 @@ export function useChat() {
       inputHistory.addToHistory,
       inputHistory.resetNavigation,
       addToast,
+      conversationState.removeLastMessage,
     ]
   )
 
@@ -383,11 +400,19 @@ export function useChat() {
         }
 
         // Save user message to persistent storage (always after creating conversation if needed)
-        await addMessageToConversation({
-          role: 'user',
-          content: sanitized,
-          timestamp: new Date(),
-        })
+        try {
+          await addMessageToConversation({
+            role: 'user',
+            content: sanitized,
+            timestamp: new Date(),
+          })
+        } catch (dbError) {
+          conversationState.removeLastMessage()
+          logger.error('Failed to save user message to DB:', dbError)
+          setIsLoading(false)
+          addToast('error', i18n.t('errors.saveFailed'))
+          return
+        }
 
         // Build conversation history for context
         const conversationHistory: ConversationMessage[] =
@@ -439,7 +464,15 @@ export function useChat() {
           conversationState.setPersistedCommandIndex(persistedIndex)
         }
 
-        await addMessageToConversation(messageToSave)
+        try {
+          await addMessageToConversation(messageToSave)
+        } catch (dbError) {
+          conversationState.removeLastMessage()
+          logger.error('Failed to save AI response to DB:', dbError)
+          setIsLoading(false)
+          addToast('error', i18n.t('errors.saveFailed'))
+          return
+        }
 
         // Set aiCommand AFTER indices are set so Execute button only appears when both are ready
         setAiCommand(command)
@@ -479,6 +512,7 @@ export function useChat() {
       inputHistory.addToHistory,
       inputHistory.resetNavigation,
       addToast,
+      conversationState.removeLastMessage,
     ]
   )
 

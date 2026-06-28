@@ -364,6 +364,12 @@ export const ChatPanel = ({ style }: { style?: CSSProperties }) => {
                 <div className="streaming-content">
                   <div className="streaming-text">
                     <span className="thinking">{t('chat.progress.thinking')}</span>
+                    {chat.streamingContent && (
+                      <>
+                        <br />
+                        <span className="streaming-preview">{chat.streamingContent}</span>
+                      </>
+                    )}
                     <span className="streaming-cursor">▌</span>
                   </div>
                   <button

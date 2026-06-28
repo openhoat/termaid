@@ -1,3 +1,4 @@
+import { wrapCommandForSandbox } from '@shared/sandbox'
 import type { CommandInterpretation } from '@shared/types'
 import { useCallback, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -91,9 +92,24 @@ export function useCommandExecution(
         await window.electronAPI.terminalStartCapture(currentPid)
         setExecutionProgress(50)
 
+        // Apply sandbox if enabled
+        let commandToExecute = command
+        if (config.sandbox?.enabled) {
+          logger.info('Sandbox mode is enabled, wrapping command')
+          const result = wrapCommandForSandbox(
+            command,
+            config.sandbox as Parameters<typeof wrapCommandForSandbox>[1]
+          )
+          if (result.error) {
+            logger.error('Sandbox rejected command:', result.error)
+            throw new Error(`Sandbox blocked: ${result.error}`)
+          }
+          commandToExecute = result.wrappedCommand
+        }
+
         // Execute command in terminal
-        logger.debug('Writing command to terminal:', command)
-        await window.electronAPI.terminalWrite(currentPid, `${command}\r`)
+        logger.debug('Writing command to terminal:', commandToExecute)
+        await window.electronAPI.terminalWrite(currentPid, `${commandToExecute}\r`)
         logger.info('Command written successfully')
 
         setExecutionProgress(70)

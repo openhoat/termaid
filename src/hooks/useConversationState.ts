@@ -13,6 +13,7 @@ export interface UseConversationStateResult {
   // Actions
   addMessage: (message: ChatMessageData) => void
   updateMessage: (index: number, updates: Partial<ChatMessageData>) => void
+  removeLastMessage: () => void
   restoreMessages: (messages: ChatMessageData[]) => void
   clearConversation: () => void
   setCurrentCommandIndex: (index: number | null) => void
@@ -72,6 +73,14 @@ export function useConversationState(): UseConversationStateResult {
   }, [])
 
   /**
+   * Remove the last message from the conversation
+   */
+  const removeLastMessage = useCallback(() => {
+    setConversation(prev => prev.slice(0, -1))
+    setMessageCounter(prev => Math.max(0, prev - 1))
+  }, [])
+
+  /**
    * Clear all conversation state
    */
   const clearConversation = useCallback(() => {
@@ -89,6 +98,7 @@ export function useConversationState(): UseConversationStateResult {
     persistedCommandIndex,
     addMessage,
     updateMessage,
+    removeLastMessage,
     restoreMessages,
     clearConversation,
     setCurrentCommandIndex,

@@ -525,6 +525,11 @@
   animation: blink 1s infinite;
 }
 
+.streaming-preview {
+  color: #9cdcfe;
+  opacity: 0.8;
+}
+
 @keyframes blink {
   0%,
   50% {

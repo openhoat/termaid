@@ -1,106 +1,166 @@
+import type { SystemContext } from '@shared/types'
 import { describe, expect, test } from 'vitest'
+import { extractRecentCommands, formatContextBlock } from './base-provider'
 
-describe('BaseLLMProvider constants', () => {
-  describe('Constants should be defined', () => {
-    test('MAX_CONVERSATION_HISTORY should be 50', () => {
-      expect(50).toBe(50)
-    })
-
-    test('MAX_OUTPUT_LINES should be 200', () => {
-      expect(200).toBe(200)
-    })
-
-    test('DEFAULT_TEMPERATURE should be 0.7', () => {
-      expect(0.7).toBe(0.7)
-    })
-
-    test('DEFAULT_MAX_TOKENS should be 2000', () => {
-      expect(2000).toBe(2000)
-    })
+describe('extractRecentCommands', () => {
+  test('should return empty array for undefined history', () => {
+    expect(extractRecentCommands(undefined)).toEqual([])
   })
 
-  describe('String cleaning operations', () => {
-    test('should remove carriage returns', () => {
-      const input = 'line1\r\nline2'
-      const cleaned = input.replace(/\r/g, '')
-      expect(cleaned).toBe('line1\nline2')
-    })
-
-    test('should trim whitespace', () => {
-      const input = '  test  '
-      expect(input.trim()).toBe('test')
-    })
-
-    test('should handle empty strings', () => {
-      const input = ''
-      expect(input.trim()).toBe('')
-    })
+  test('should return empty array for empty history', () => {
+    expect(extractRecentCommands([])).toEqual([])
   })
 
-  describe('Command schema validation', () => {
-    test('should validate command type', () => {
-      const validCommand = {
-        type: 'command',
-        command: 'ls',
-        explanation: 'List files',
-        confidence: 0.9,
-      }
-      expect(validCommand.type).toBe('command')
-    })
-
-    test('should validate text type', () => {
-      const validText = {
-        type: 'text',
-        content: 'Hello',
-      }
-      expect(validText.type).toBe('text')
-    })
-
-    test('should handle optional fields', () => {
-      const minimal = {
-        type: 'command',
-      }
-      expect(minimal.type).toBe('command')
-    })
+  test('should extract command from assistant messages with command', () => {
+    const history = [
+      { role: 'user' as const, content: 'list files', timestamp: new Date() },
+      { role: 'assistant' as const, content: '', command: 'ls -la', timestamp: new Date() },
+    ]
+    expect(extractRecentCommands(history)).toEqual(['ls -la'])
   })
 
-  describe('Interpretation schema', () => {
-    test('should validate interpretation structure', () => {
-      const valid = {
-        summary: 'Success',
-        key_findings: ['file1'],
-        warnings: [],
-        errors: [],
-        recommendations: [],
-        successful: true,
-      }
-      expect(valid.summary).toBe('Success')
-      expect(valid.successful).toBe(true)
-    })
-
-    test('should handle default values', () => {
-      const interpretation = {
-        summary: 'Default summary',
-      }
-      expect(interpretation.summary).toBe('Default summary')
-    })
+  test('should skip assistant messages without command', () => {
+    const history = [
+      { role: 'assistant' as const, content: 'Hello', timestamp: new Date() },
+      {
+        role: 'assistant' as const,
+        content: '',
+        command: 'find . -name "*.ts"',
+        timestamp: new Date(),
+      },
+    ]
+    expect(extractRecentCommands(history)).toEqual(['find . -name "*.ts"'])
   })
 
-  describe('Fallback message handling', () => {
-    test('should return English fallback', () => {
-      const messages = {
-        en: 'English message',
-        fr: 'French message',
-      }
-      expect(messages.en).toBe('English message')
-    })
+  test('should return at most 5 recent commands', () => {
+    const history = Array.from({ length: 8 }, (_, i) => ({
+      role: 'assistant' as const,
+      content: '',
+      command: `cmd-${i}`,
+      timestamp: new Date(),
+    }))
+    expect(extractRecentCommands(history)).toHaveLength(5)
+    expect(extractRecentCommands(history)).toEqual(['cmd-3', 'cmd-4', 'cmd-5', 'cmd-6', 'cmd-7'])
+  })
+})
 
-    test('should return French fallback', () => {
-      const messages = {
-        en: 'English message',
-        fr: 'French message',
-      }
-      expect(messages.fr).toBe('French message')
-    })
+describe('formatContextBlock', () => {
+  const baseContext: SystemContext = {
+    cwd: '/home/user/project',
+    os: {
+      platform: 'linux',
+      distro: 'Ubuntu',
+      release: '22.04',
+      arch: 'x64',
+      hostname: 'my-machine',
+    },
+    shell: '/bin/bash',
+    git: {
+      isRepo: false,
+    },
+    projectType: 'node',
+    projectFiles: ['package.json', 'tsconfig.json'],
+    hasDocker: true,
+    recentCommands: [],
+  }
+
+  test('should include working directory', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).toContain('/home/user/project')
+  })
+
+  test('should include OS info with distro', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).toContain('linux (Ubuntu)')
+    expect(block).toContain('22.04')
+    expect(block).toContain('x64')
+  })
+
+  test('should include hostname and shell', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).toContain('my-machine')
+    expect(block).toContain('/bin/bash')
+  })
+
+  test('should indicate non-git repository', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).toContain('not a git repository')
+  })
+
+  test('should include git info when in a repo', () => {
+    const context: SystemContext = {
+      ...baseContext,
+      git: {
+        isRepo: true,
+        branch: 'main',
+        status: '',
+      },
+    }
+    const block = formatContextBlock(context)
+    expect(block).toContain('Git:')
+    expect(block).toContain('main')
+    expect(block).toContain('clean working tree')
+  })
+
+  test('should include modified files count in git status', () => {
+    const context: SystemContext = {
+      ...baseContext,
+      git: {
+        isRepo: true,
+        branch: 'feature',
+        status: 'M src/index.ts\nA src/new.ts',
+      },
+    }
+    const block = formatContextBlock(context)
+    expect(block).toContain('2 file(s) modified')
+  })
+
+  test('should include project type and detected files', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).toContain('Project type: node')
+    expect(block).toContain('package.json, tsconfig.json')
+  })
+
+  test('should indicate Docker availability', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).toContain('Docker: available')
+  })
+
+  test('should indicate Docker not available', () => {
+    const context: SystemContext = { ...baseContext, hasDocker: false }
+    const block = formatContextBlock(context)
+    expect(block).toContain('Docker: not available')
+  })
+
+  test('should include recent commands when present', () => {
+    const context: SystemContext = {
+      ...baseContext,
+      recentCommands: ['ls -la', 'cat package.json'],
+    }
+    const block = formatContextBlock(context)
+    expect(block).toContain('ls -la')
+    expect(block).toContain('cat package.json')
+  })
+
+  test('should omit recent commands section when empty', () => {
+    const block = formatContextBlock(baseContext)
+    expect(block).not.toContain('Recent commands:')
+  })
+
+  test('should format OS info without distro gracefully', () => {
+    const context: SystemContext = {
+      ...baseContext,
+      os: {
+        platform: 'darwin',
+        distro: undefined,
+        release: '24.0',
+        arch: 'arm64',
+        hostname: 'mbp',
+      },
+    }
+    const block = formatContextBlock(context)
+    expect(block).toContain('darwin')
+    expect(block).toContain('24.0')
+    expect(block).toContain('arm64')
   })
 })
