@@ -20,6 +20,23 @@
    - **Edit**: Adjust the command before execution
    - **Cancel**: Ignore the proposal
 
+### Interpret Output
+
+After a command runs, you can click on its output in the terminal (or type *"analyze this output"* in the chat) to trigger an AI-powered interpretation. The LLM analyzes the output and provides:
+
+- **key_findings** — what the command revealed (file counts, disk usage, errors detected, etc.)
+- **warnings** — potential issues that need attention
+- **recommendations** — suggested next actions or fixes to apply
+
+The interpretation is enriched with environment context (OS, shell, current directory) for more relevant suggestions.
+
+### Contextual Prompts
+
+Termaid automatically collects environment context before generating commands:
+your OS, shell, current directory, Docker status, Git branch, and project type.
+The LLM uses this context to tailor commands to your system — no need to specify
+your OS or environment in your prompt.
+
 ## Keyboard Shortcuts
 
 Press `Ctrl+/` (or `?`) to open the shortcuts cheat sheet at any time.
@@ -49,11 +66,22 @@ The terminal on the left works like a classic terminal. You can:
 
 ## Query Examples
 
+### General
+
 - *"List all Python files in the current directory"*
 - *"Find files larger than 100MB in /home"*
 - *"Show disk usage"*
 - *"Count the number of lines in all .txt files"*
 - *"Create a folder with today's date"*
+
+### Context-Aware
+
+These queries trigger multi-step responses that leverage environment context:
+
+- *"Describe my environment"* — injects a composite command (OS, kernel, disk, memory, shell) and interprets the result
+- *"Analyze disk usage"* — runs `df -h` + `du -sh *` with enriched interpretation
+- *"Check Docker status"* — automatically detects whether Docker is available before suggesting commands
+- *"What's using the most memory?"* — picks the right tool (`ps`, `top`, `htop`) based on your OS
 
 ## Security
 
