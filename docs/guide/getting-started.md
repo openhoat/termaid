@@ -6,24 +6,24 @@ Download the latest release for your platform:
 
 | Platform | Format | Download |
 |----------|--------|----------|
-| **Linux** | AppImage | [Termaid-1.3.6.AppImage](https://github.com/openhoat/termaid/releases/latest/download/Termaid-1.3.6.AppImage) |
-| **Linux** | Debian/Ubuntu | [termaid_1.3.6_amd64.deb](https://github.com/openhoat/termaid/releases/latest/download/termaid_1.3.6_amd64.deb) |
-| **macOS** | DMG (ARM) | [Termaid-1.3.6-arm64.dmg](https://github.com/openhoat/termaid/releases/latest/download/Termaid-1.3.6-arm64.dmg) |
-| **Windows** | Installer | [Termaid.Setup.1.3.6.exe](https://github.com/openhoat/termaid/releases/latest/download/Termaid.Setup.1.3.6.exe) |
+| **Linux** | AppImage | [Termaid-1.5.0.AppImage](https://github.com/openhoat/termaid/releases/latest/download/Termaid-1.5.0.AppImage) |
+| **Linux** | Debian/Ubuntu | [termaid_1.5.0_amd64.deb](https://github.com/openhoat/termaid/releases/latest/download/termaid_1.5.0_amd64.deb) |
+| **macOS** | DMG (ARM) | [Termaid-1.5.0-arm64.dmg](https://github.com/openhoat/termaid/releases/latest/download/Termaid-1.5.0-arm64.dmg) |
+| **Windows** | Installer | [Termaid.Setup.1.5.0.exe](https://github.com/openhoat/termaid/releases/latest/download/Termaid.Setup.1.5.0.exe) |
 
 > See all versions on the [Releases page](https://github.com/openhoat/termaid/releases).
 
 ### Linux (AppImage)
 
 ```bash
-chmod +x Termaid-1.3.6.AppImage
-./Termaid-1.3.6.AppImage
+chmod +x Termaid-1.5.0.AppImage
+./Termaid-1.5.0.AppImage
 ```
 
 ### Linux (Debian/Ubuntu)
 
 ```bash
-sudo dpkg -i termaid_1.3.6_amd64.deb
+sudo dpkg -i termaid_1.5.0_amd64.deb
 ```
 
 ### macOS
@@ -32,7 +32,7 @@ Open the `.dmg` file and drag Termaid to your Applications folder.
 
 ### Windows
 
-Run the `Termaid.Setup.1.3.6.exe` installer and follow the steps.
+Run the `Termaid.Setup.1.5.0.exe` installer and follow the steps.
 
 ## Development Setup
 
