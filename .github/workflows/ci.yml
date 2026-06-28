@@ -147,7 +147,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     strategy:
       matrix:
-        os: [macos-latest, windows-latest]
+        os: [macos-latest, windows-2022]
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
